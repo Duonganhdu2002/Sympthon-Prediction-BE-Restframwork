@@ -11,7 +11,7 @@ django.setup()
 
 from diagnosis.models import Rule, UserFeedback
 from diagnosis.backward_chaining import BackwardChaining, Rule as BCRule
-from diagnosis.nlp_processing import extract_symptoms
+from diagnosis.nlp_processing import extract_symptoms_and_diseases
 
 async def get_rules():
     return [BCRule(rule.disease, rule.symptoms.split(',')) for rule in await sync_to_async(list)(Rule.objects.all())]
@@ -41,23 +41,37 @@ async def process_message(message):
         if not text:
             return json.dumps({"message": "Hi, I'm Layla, your virtual nurse. It seems like you didn't provide any symptoms. Could you please describe what you're experiencing?"})
 
-        symptoms = extract_symptoms(text)
-        if not symptoms:
-            return json.dumps({"message": "Hi, I'm Layla. I couldn't detect any symptoms in your message. Could you please describe your symptoms in more detail?"})
+        symptoms, diseases = await extract_symptoms_and_diseases(text)
 
         rules = await get_rules()
         backward_chaining = BackwardChaining(rules)
-        inferred_diseases = backward_chaining.infer_disease(symptoms)
-
         response_message = ""
-        if inferred_diseases:
-            response_message = create_response_message(inferred_diseases[0], None)
-            await save_user_feedback(text, ", ".join(symptoms), inferred_diseases[0])
-        else:
-            related_diseases = backward_chaining.get_related_diseases(symptoms)
-            response_message = create_response_message(None, related_diseases)
-            await save_user_feedback(text, ", ".join(symptoms), "None", ", ".join(related_diseases))
 
+        if diseases and not symptoms:
+            # Case 1: User provided only a disease name
+            disease_name = diseases[0]
+            disease_symptoms = backward_chaining.get_disease_symptoms(disease_name)
+            response_message = f"The symptoms of {disease_name} are: {', '.join(disease_symptoms)}. Do you have these symptoms?"
+
+        elif symptoms and not diseases:
+            # Case 2: User provided only symptoms
+            inferred_diseases = backward_chaining.infer_disease(symptoms)
+            if inferred_diseases:
+                response_message = create_response_message(inferred_diseases[0], None)
+            else:
+                related_diseases = backward_chaining.get_related_diseases(symptoms)
+                response_message = create_response_message(None, related_diseases)
+
+        elif diseases and symptoms:
+            # Case 3: User provided both disease name and symptoms
+            disease_name = diseases[0]
+            if backward_chaining.check_disease_with_symptoms(disease_name, symptoms):
+                response_message = f"Based on the symptoms you provided, it seems like you might be experiencing symptoms of {disease_name}. I recommend that you consult with a healthcare professional for a proper diagnosis and treatment."
+            else:
+                related_diseases = backward_chaining.get_related_diseases(symptoms)
+                response_message = create_response_message(None, related_diseases)
+
+        await save_user_feedback(text, ", ".join(symptoms), ", ".join(diseases))
         return json.dumps({'message': response_message})
     except Exception as e:
         return json.dumps({"error": str(e)})
