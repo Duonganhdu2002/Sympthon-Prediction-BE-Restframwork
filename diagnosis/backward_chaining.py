@@ -28,7 +28,7 @@ class BackwardChaining:
     def get_related_diseases(self, symptoms):
         related_diseases = []
         for disease, disease_symptoms in self.rules.items():
-            if any(symptom in symptoms for symptom in disease_symptoms):
+            if any(symptom in disease_symptoms for symptom in symptoms):
                 related_diseases.append(disease)
         return related_diseases
 
@@ -48,6 +48,12 @@ class BackwardChaining:
         else:
             return "I'm sorry, but I couldn't find a match for your symptoms."
 
+    def format_string(self, string):
+        return string.replace('_', ' ').capitalize()
+
+    def format_list(self, items):
+        return [self.format_string(item) for item in items]
+
     async def handle_input(self, text):
         symptoms, diseases = await extract_symptoms_and_diseases(text)
         response_message = ""
@@ -61,27 +67,27 @@ class BackwardChaining:
             disease_name = diseases[0]
             disease_symptoms = self.get_disease_symptoms(disease_name)
             if disease_symptoms:
-                response_message = f"The symptoms of {disease_name} are: {', '.join(disease_symptoms)}. Do you have these symptoms?"
+                response_message = f"The symptoms of {self.format_string(disease_name)} are: {', '.join(self.format_list(disease_symptoms))}. Do you have these symptoms?"
             else:
-                response_message = f"The symptoms of {disease_name} are not available. Do you have these symptoms?"
+                response_message = f"The symptoms of {self.format_string(disease_name)} are not available. Do you have these symptoms?"
 
         elif symptoms and not diseases:
             # Case 2: User provided only symptoms
             inferred_diseases = self.get_related_diseases(symptoms)
             if inferred_diseases:
-                response_message = self.create_response_message(disease=inferred_diseases[0])
+                response_message = self.create_response_message(disease=self.format_string(inferred_diseases[0]))
             else:
-                response_message = self.create_response_message(related_diseases=self.get_related_diseases(symptoms))
+                response_message = self.create_response_message(related_diseases=self.format_list(self.get_related_diseases(symptoms)))
 
         elif diseases and symptoms:
             # Case 3: User provided both disease name and symptoms
             disease_name = diseases[0]
             if self.check_disease_with_symptoms(disease_name, symptoms):
-                response_message = f"Based on the symptoms you provided, it seems like you might be experiencing symptoms of {disease_name}."
+                response_message = f"Based on the symptoms you provided, it seems like you might be experiencing symptoms of {self.format_string(disease_name)}."
             else:
                 disease_symptoms = self.get_disease_symptoms(disease_name)
                 related_diseases = self.get_related_diseases(symptoms)
                 related_diseases = [d for d in related_diseases if d != disease_name]
-                response_message = f"The symptoms you provided do not match completely with {disease_name}. However, the symptoms of {disease_name} are: {', '.join(disease_symptoms)}. You might also be experiencing something related to: {', '.join(related_diseases)}."
+                response_message = f"The symptoms you provided do not match completely with {self.format_string(disease_name)}. However, the symptoms of {self.format_string(disease_name)} are: {', '.join(self.format_list(disease_symptoms))}. You might also be experiencing something related to: {', '.join(self.format_list(related_diseases))}."
 
         return response_message
