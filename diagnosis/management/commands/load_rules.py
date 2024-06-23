@@ -11,7 +11,7 @@ class Command(BaseCommand):
             reader = csv.reader(file)
             next(reader)  # Skip header row
             for row in reader:
-                disease = row[0]
-                symptoms = ','.join([symptom.strip() for symptom in row[1:] if symptom.strip()])
+                disease = row[0].lower().strip()
+                symptoms = ','.join([symptom.strip().lower().replace(" ", "_") for symptom in row[1:] if symptom.strip()])
                 Rule.objects.create(disease=disease, symptoms=symptoms)
         self.stdout.write(self.style.SUCCESS('Successfully loaded rules from CSV'))

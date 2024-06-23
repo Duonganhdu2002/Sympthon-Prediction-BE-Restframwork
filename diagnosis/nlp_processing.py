@@ -8,7 +8,7 @@ nlp = spacy.load("en_core_web_sm")
 @sync_to_async
 def get_disease_and_symptom_list():
     """
-    Hàm này đọc danh sách các bệnh và triệu chứng từ cơ sở dữ liệu và trả về một tập hợp các bệnh và triệu chứng.
+    đọc danh sách các bệnh và triệu chứng từ cơ sở dữ liệu và trả về một tập hợp các bệnh và triệu chứng.
     """
     diseases = set()
     symptoms = set()
